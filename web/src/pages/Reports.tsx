@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { logApi } from "../api/logApi";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
+
+
 export default function Reports() {
   const [data, setData] = useState<any[]>([]);
 
@@ -29,17 +31,27 @@ export default function Reports() {
   useEffect(() => { load(); }, []);
 
   return (
-    <div style={{ padding: "1rem" }}>
-      <h2>📈 Vehicle Reports</h2>
-      <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={data}>
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
-          <Bar dataKey="registered" fill="#4CAF50" />
-          <Bar dataKey="unregistered" fill="#F44336" />
-        </BarChart>
-      </ResponsiveContainer>
+    <div className="bg-gray-800 p-6 rounded-lg">
+      <h2 className="text-3xl font-bold text-white mb-6">📈 Vehicle Reports</h2>
+
+      <div className="bg-gray-700 p-6 rounded-lg">
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart data={data}>
+            <XAxis dataKey="date" stroke="#9CA3AF" />
+            <YAxis stroke="#9CA3AF" />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: '#374151',
+                border: 'none',
+                borderRadius: '0.5rem',
+                color: '#fff'
+              }}
+            />
+            <Bar dataKey="registered" fill="#10B981" name="Registered" />
+            <Bar dataKey="unregistered" fill="#EF4444" name="Unregistered" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

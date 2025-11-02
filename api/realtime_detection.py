@@ -4,18 +4,18 @@ import requests
 import numpy as np
 import re
 
-API_URL = "http://127.0.0.1:8000/api/detect"
+API_URL = "http://127.0.0.1:8000/api/detect/manual"
 reader = easyocr.Reader(['en'], gpu=False)  # change to True if you have CUDA
 
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
-    print("❌ Cannot open camera")
+    print("ERROR: Cannot open camera")
     exit()
 
 frame_count = 0
 last_plate = None
 
-print("🎥 Camera started... Press 'q' to quit")
+print("Camera started... Press 'q' to quit")
 
 while True:
     ret, frame = cap.read()
