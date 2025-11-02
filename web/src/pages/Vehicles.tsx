@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { vehicleApi } from "../api/vehicleApi";
+import { toPhilippineTime } from "../utils/dateUtils";
 
 
 
@@ -43,7 +44,22 @@ export default function Vehicles() {
 
   const addVehicle = async (e: any) => {
     e.preventDefault();
-    await vehicleApi.create(form);
+
+    // Normalize plate number: uppercase, remove spaces and special characters
+    const normalizedPlate = form.plate_number.toUpperCase().replace(/[\s\-]/g, '');
+
+    // Validate plate number (alphanumeric only, 5-8 characters)
+    if (!/^[A-Z0-9]+$/.test(normalizedPlate)) {
+      alert('Plate number should only contain letters and numbers');
+      return;
+    }
+
+    if (normalizedPlate.length < 5 || normalizedPlate.length > 8) {
+      alert('Plate number should be between 5 and 8 characters');
+      return;
+    }
+
+    await vehicleApi.create({ ...form, plate_number: normalizedPlate });
     setForm({ name: "", plate_number: "", purpose: "", profile_picture: "" });
     setImagePreview("");
     load();
@@ -64,7 +80,21 @@ export default function Vehicles() {
   const handleUpdate = async (e: any) => {
     e.preventDefault();
     if (editingPlate) {
-      await vehicleApi.update(editingPlate, form);
+      // Normalize plate number: uppercase, remove spaces and special characters
+      const normalizedPlate = form.plate_number.toUpperCase().replace(/[\s\-]/g, '');
+
+      // Validate plate number (alphanumeric only, 5-8 characters)
+      if (!/^[A-Z0-9]+$/.test(normalizedPlate)) {
+        alert('Plate number should only contain letters and numbers');
+        return;
+      }
+
+      if (normalizedPlate.length < 5 || normalizedPlate.length > 8) {
+        alert('Plate number should be between 5 and 8 characters');
+        return;
+      }
+
+      await vehicleApi.update(editingPlate, { ...form, plate_number: normalizedPlate });
       setIsModalOpen(false);
       setEditingPlate(null);
       setForm({ name: "", plate_number: "", purpose: "", profile_picture: "" });
@@ -103,82 +133,79 @@ export default function Vehicles() {
     <div className="bg-gray-800 p-6 rounded-lg">
       <h2 className="text-3xl font-bold text-white mb-6">🚗 Registered Vehicles</h2>
 
-      <form onSubmit={addVehicle} className="mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
+      <form onSubmit={addVehicle} className="mb-6 bg-gray-700 p-4 rounded-lg">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs font-medium text-gray-400 mb-1">Name</label>
             <input
-              placeholder="Enter owner name"
+              placeholder="Owner name"
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
-              className="bg-gray-700 text-white border-0 p-3 rounded-lg w-full placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="bg-gray-600 text-white border-0 p-2 rounded-lg w-full placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Plate Number</label>
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-gray-400 mb-1">Plate Number</label>
             <input
-              placeholder="Enter plate number"
+              placeholder="Plate number"
               value={form.plate_number}
               onChange={e => setForm({ ...form, plate_number: e.target.value })}
-              className="bg-gray-700 text-white border-0 p-3 rounded-lg w-full placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="bg-gray-600 text-white border-0 p-2 rounded-lg w-full placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Purpose</label>
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-gray-400 mb-1">Purpose</label>
             <input
-              placeholder="Enter purpose (optional)"
+              placeholder="Purpose (optional)"
               value={form.purpose}
               onChange={e => setForm({ ...form, purpose: e.target.value })}
-              className="bg-gray-700 text-white border-0 p-3 rounded-lg w-full placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="bg-gray-600 text-white border-0 p-2 rounded-lg w-full placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Profile Picture</label>
+          <div className="flex-1 min-w-[180px]">
+            <label className="block text-xs font-medium text-gray-400 mb-1">Profile Picture</label>
             <input
               type="file"
               accept="image/*"
               onChange={handleImageChange}
-              className="bg-gray-700 text-white border-0 p-3 rounded-lg w-full file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer"
+              className="bg-gray-600 text-white border-0 p-2 rounded-lg w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:text-xs"
             />
           </div>
-        </div>
 
-        {imagePreview && (
-          <div className="mb-4 flex justify-center">
-            <div className="text-center">
-              <p className="text-sm text-gray-400 mb-2">Preview:</p>
+          {imagePreview && (
+            <div className="flex items-center">
               <img
                 src={imagePreview}
                 alt="Preview"
-                className="w-32 h-32 object-cover rounded-full border-4 border-gray-600"
+                className="w-10 h-10 object-cover rounded-full border-2 border-blue-500"
               />
             </div>
-          </div>
-        )}
+          )}
 
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium transition-colors"
-        >
-          Add Vehicle
-        </button>
+          <button
+            type="submit"
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium transition-colors text-sm"
+          >
+            Add Vehicle
+          </button>
+        </div>
       </form>
 
-      <div className="overflow-auto bg-gray-700 rounded-lg">
+      <div className="overflow-auto bg-gray-700 rounded-lg max-h-[600px]">
         <table className="w-full text-left">
-          <thead className="bg-gray-750 border-b border-gray-600">
+          <thead className="bg-gray-750 border-b border-gray-600 sticky top-0">
             <tr>
-              <th className="p-4 text-white font-semibold">Photo</th>
-              <th className="p-4 text-white font-semibold">Name</th>
-              <th className="p-4 text-white font-semibold">Plate</th>
-              <th className="p-4 text-white font-semibold">Purpose</th>
-              <th className="p-4 text-white font-semibold">Date</th>
-              <th className="p-4 text-white font-semibold">Actions</th>
+              <th className="p-4 text-white font-semibold bg-gray-750">Photo</th>
+              <th className="p-4 text-white font-semibold bg-gray-750">Name</th>
+              <th className="p-4 text-white font-semibold bg-gray-750">Plate</th>
+              <th className="p-4 text-white font-semibold bg-gray-750">Purpose</th>
+              <th className="p-4 text-white font-semibold bg-gray-750">Date</th>
+              <th className="p-4 text-white font-semibold bg-gray-750">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -201,7 +228,7 @@ export default function Vehicles() {
                   <td className="p-4 text-white">{v.name}</td>
                   <td className="p-4 text-white">{v.plate_number}</td>
                   <td className="p-4 text-gray-300">{v.purpose}</td>
-                  <td className="p-4 text-gray-300">{new Date(v.date_registered).toLocaleString()}</td>
+                  <td className="p-4 text-gray-300">{toPhilippineTime(v.date_registered)}</td>
                   <td className="p-4">
                     <div className="flex gap-2">
                       <button

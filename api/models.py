@@ -2,6 +2,14 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from api.database import Base
+import pytz
+
+# Philippine timezone
+PHILIPPINE_TZ = pytz.timezone('Asia/Manila')
+
+def get_philippine_time():
+    """Get current time in Philippine timezone"""
+    return datetime.now(PHILIPPINE_TZ)
 
 class Vehicle(Base):
     __tablename__ = "vehicles"
@@ -11,7 +19,7 @@ class Vehicle(Base):
     plate_number = Column(String, unique=True, index=True, nullable=False)
     purpose = Column(String, nullable=True)
     profile_picture = Column(String, nullable=True)
-    date_registered = Column(DateTime, default=datetime.utcnow)
+    date_registered = Column(DateTime, default=get_philippine_time)
 
     # Relationship to logs
     logs = relationship("Log", back_populates="vehicle")
@@ -21,7 +29,7 @@ class Log(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     plate_number = Column(String, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=get_philippine_time)
     status = Column(String, default="unregistered")
     vehicle_id = Column(Integer, ForeignKey("vehicles.id"))
 

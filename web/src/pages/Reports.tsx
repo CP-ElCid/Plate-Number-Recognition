@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { logApi } from "../api/logApi";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { toPhilippineDate } from "../utils/dateUtils";
 
 
 
@@ -15,7 +16,7 @@ export default function Reports() {
     const daily: Record<string, { registered: number; unregistered: number }> = {};
 
     logs.forEach((log: any) => {
-      const date = new Date(log.timestamp).toLocaleDateString();
+      const date = toPhilippineDate(log.timestamp);
       if (!daily[date]) daily[date] = { registered: 0, unregistered: 0 };
       daily[date][log.status === "registered" ? "registered" : "unregistered"]++;
     });

@@ -8,7 +8,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: "Dashboard", path: "/" },
     { name: "Vehicles", path: "/vehicles" },
     { name: "Logs", path: "/logs" },
-    { name: "Reports", path: "/reports" },
+    // { name: "Reports", path: "/reports" },
   ];
 
   return (

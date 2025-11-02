@@ -8,6 +8,10 @@ from api import models
 from datetime import datetime
 from api.websocket_manager import manager
 import asyncio
+import pytz
+
+# Philippine timezone
+PHILIPPINE_TZ = pytz.timezone('Asia/Manila')
 
 router = APIRouter()
 
@@ -47,7 +51,7 @@ async def process_detection(plate: str):
         # Check if vehicle is registered
         vehicle = db.query(models.Vehicle).filter(models.Vehicle.plate_number == plate).first()
 
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(PHILIPPINE_TZ)
 
         if vehicle:
             # Create log for registered vehicle
@@ -107,7 +111,10 @@ def generate_frames():
     # Initialize camera
     if camera is None:
         camera = cv2.VideoCapture(CAMERA_SOURCE)
-        camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer
+        camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer to minimize lag
+        camera.set(cv2.CAP_PROP_FPS, 30)  # Set frame rate
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)  # Set resolution
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     if not camera.isOpened():
         print("❌ Cannot open camera")
@@ -127,31 +134,24 @@ def generate_frames():
 
             frame_count += 1
 
-            # Resize frame (match realtime_detection.py)
-            frame = cv2.resize(frame, (480, 360))
+            # Resize frame to smaller size for better performance
+            frame = cv2.resize(frame, (640, 480))
 
-            # Process OCR every 10th frame only (match realtime_detection.py)
-            if frame_count % 10 == 0:
+            # Process OCR every 30th frame only (reduce OCR frequency for better performance)
+            if frame_count % 30 == 0:
                 try:
-                    # Try multiple ROI approaches for better detection
+                    # Use only center ROI for better performance (don't process full frame)
                     h, w, _ = frame.shape
 
-                    # Approach 1: Use full frame (for plates held up close)
-                    gray_full = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    # Center ROI - where license plates are typically shown
+                    roi = frame[int(h*0.3):int(h*0.7), int(w*0.2):int(w*0.8)]
+                    gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
-                    # Approach 2: Bottom center ROI (for plates at bottom)
-                    roi_bottom = frame[int(h*0.5):h, int(w*0.2):int(w*0.8)]
-                    gray_roi = cv2.cvtColor(roi_bottom, cv2.COLOR_BGR2GRAY)
+                    # Process OCR only on ROI (faster than full frame)
+                    results = reader.readtext(gray_roi, detail=1, paragraph=False)
 
-                    # Try OCR on full frame first (better for close-up plates)
-                    results = reader.readtext(gray_full, detail=1, paragraph=False)
-
-                    # If no good results, try ROI
-                    if not results or len(results) == 0:
-                        results = reader.readtext(gray_roi, detail=1, paragraph=False)
-
-                    # Debug: print all OCR results
-                    if results and frame_count % 30 == 0:  # Print every 30 frames to avoid spam
+                    # Debug: print all OCR results (reduce logging frequency)
+                    if results and frame_count % 90 == 0:  # Print every 90 frames to avoid spam
                         print(f"🔍 OCR found {len(results)} text regions")
                         for (_, text, prob) in results:
                             print(f"   Raw: '{text}' | Confidence: {prob:.2f}")
@@ -188,8 +188,8 @@ def generate_frames():
                 except Exception as e:
                     print(f"❌ OCR Error: {e}")
 
-            # Encode frame to JPEG
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]
+            # Encode frame to JPEG with lower quality for faster streaming
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 60]
             _, buffer = cv2.imencode('.jpg', frame, encode_param)
             frame_bytes = buffer.tobytes()
 

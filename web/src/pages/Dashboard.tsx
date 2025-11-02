@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { detectApi } from "../api/detectApi";
+import { logApi } from "../api/logApi";
+import { toPhilippineTime, toPhilippineTimeOnly } from "../utils/dateUtils";
 
 
 interface Detection {
@@ -18,6 +20,8 @@ export default function Dashboard() {
   const [plate, setPlate] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<Detection | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [searchResult, setSearchResult] = useState<Detection | null>(null);
 
   const handleCameraToggle = async () => {
     if (cameraOn) {
@@ -98,11 +102,60 @@ export default function Dashboard() {
   }, []);
 
   const checkManual = async () => {
-    const res = await detectApi.checkPlate(plate);
+    // Normalize plate number: uppercase, remove spaces and special characters
+    const normalizedPlate = plate.toUpperCase().replace(/[\s\-]/g, '');
+
+    // Validate plate number (alphanumeric only, 5-8 characters)
+    if (!normalizedPlate) {
+      alert('Please enter a plate number');
+      return;
+    }
+
+    if (!/^[A-Z0-9]+$/.test(normalizedPlate)) {
+      alert('Plate number should only contain letters and numbers');
+      return;
+    }
+
+    if (normalizedPlate.length < 5 || normalizedPlate.length > 8) {
+      alert('Plate number should be between 5 and 8 characters');
+      return;
+    }
+
+    const res = await detectApi.checkPlate(normalizedPlate);
     setPlate("");
     const data = res.data;
-    setDetections((prev) => [data, ...prev.slice(0, 10)]);
-    setSelectedVehicle(data);
+
+    // Don't add manual checks to live detections
+    // Only show result in modal
+    setSearchResult(data);
+    setIsSearchModalOpen(true);
+  };
+
+  const closeSearchModal = () => {
+    setIsSearchModalOpen(false);
+    setSearchResult(null);
+  };
+
+  const handleAddToLogs = async () => {
+    if (!searchResult) return;
+
+    try {
+      // Create log entry with current timestamp
+      // The backend will use the current Philippine time when creating the log
+      await logApi.create({
+        plate_number: searchResult.plate_number,
+        status: searchResult.status,
+        // vehicle_id is optional - backend will look it up based on plate_number if needed
+      });
+
+      // Close modal and show success
+      setIsSearchModalOpen(false);
+      setSearchResult(null);
+      alert('✅ Successfully added to logs with current date and time!');
+    } catch (error) {
+      console.error("Failed to add to logs:", error);
+      alert("❌ Failed to add to logs. Please try again.");
+    }
   };
 
 
@@ -194,7 +247,7 @@ export default function Dashboard() {
                       >
                         {d.status === "registered" ? "✅ Registered" : "🚫 Unregistered"}
                       </td>
-                      <td className="p-4 text-gray-300">{new Date(d.timestamp).toLocaleTimeString()}</td>
+                      <td className="p-4 text-gray-300">{toPhilippineTimeOnly(d.timestamp)}</td>
                     </tr>
                   ))
                 )}
@@ -236,7 +289,7 @@ export default function Dashboard() {
                 <div className="pb-3">
                   <p className="text-sm text-gray-400 mb-1">Date of Entry</p>
                   <p className="text-lg font-semibold text-white">
-                    {new Date(selectedVehicle.timestamp).toLocaleString()}
+                    {toPhilippineTime(selectedVehicle.timestamp)}
                   </p>
                 </div>
 
@@ -260,6 +313,115 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Search Result Modal */}
+      {isSearchModalOpen && searchResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-white">
+                {searchResult.status === "registered" ? "✅ Vehicle Registered" : "🚫 Vehicle Unregistered"}
+              </h3>
+              <button
+                onClick={closeSearchModal}
+                className="text-gray-400 hover:text-white text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex flex-col items-center space-y-6 w-full">
+              {/* Profile Picture */}
+              {searchResult.status === "registered" ? (
+                <>
+                  <img
+                    src={
+                      searchResult.vehicle?.profile_picture ||
+                      "https://via.placeholder.com/200"
+                    }
+                    alt="Vehicle Owner"
+                    className="w-40 h-40 rounded-full object-cover border-4 border-green-600 shadow-lg mx-auto"
+                  />
+
+                  {/* Vehicle Details */}
+                  <div className="w-full space-y-4">
+                    <div className="border-b border-gray-600 pb-3">
+                      <p className="text-sm text-gray-400 mb-1">Name</p>
+                      <p className="text-lg font-semibold text-white">
+                        {searchResult.vehicle?.name || "N/A"}
+                      </p>
+                    </div>
+
+                    <div className="border-b border-gray-600 pb-3">
+                      <p className="text-sm text-gray-400 mb-1">Plate Number</p>
+                      <p className="text-lg font-semibold text-white">
+                        {searchResult.plate_number}
+                      </p>
+                    </div>
+
+                    <div className="border-b border-gray-600 pb-3">
+                      <p className="text-sm text-gray-400 mb-1">Date of Entry</p>
+                      <p className="text-lg font-semibold text-white">
+                        {toPhilippineTime(searchResult.timestamp)}
+                      </p>
+                    </div>
+
+                    {searchResult.vehicle?.purpose && (
+                      <div className="pb-3">
+                        <p className="text-sm text-gray-400 mb-1">Purpose</p>
+                        <p className="text-md text-gray-300">
+                          {searchResult.vehicle.purpose}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center space-y-4 w-full">
+                  <div className="w-40 h-40 rounded-full bg-gray-700 flex items-center justify-center border-4 border-red-600 mx-auto">
+                    <span className="text-6xl">🚫</span>
+                  </div>
+                  <div className="w-full space-y-4">
+                    <div className="border-b border-gray-600 pb-3">
+                      <p className="text-sm text-gray-400 mb-1">Plate Number</p>
+                      <p className="text-lg font-semibold text-white">
+                        {searchResult.plate_number}
+                      </p>
+                    </div>
+                    <div className="pb-3">
+                      <p className="text-sm text-gray-400 mb-1">Status</p>
+                      <p className="text-lg font-semibold text-red-400">
+                        This vehicle is not registered in the system
+                      </p>
+                    </div>
+                    <div className="border-t border-gray-600 pt-3">
+                      <p className="text-sm text-gray-400 mb-1">Time Checked</p>
+                      <p className="text-md text-gray-300">
+                        {toPhilippineTime(searchResult.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleAddToLogs}
+                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-medium transition-colors"
+              >
+                📝 Add to Logs Now
+              </button>
+              <button
+                onClick={closeSearchModal}
+                className="flex-1 bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

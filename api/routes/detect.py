@@ -8,6 +8,10 @@ import easyocr
 import numpy as np
 import cv2
 import re
+import pytz
+
+# Philippine timezone
+PHILIPPINE_TZ = pytz.timezone('Asia/Manila')
 
 router = APIRouter()
 
@@ -44,7 +48,7 @@ def extract_plate_from_image(image_bytes: bytes) -> str | None:
 
         # Look for text that resembles a license plate
         # License plates are typically: 2-3 letters + 3-4 numbers or similar patterns
-        for (bbox, text, confidence) in results:
+        for (_, text, confidence) in results:
             # Clean up the text
             text = text.upper().replace(' ', '').replace('-', '')
 
@@ -83,8 +87,8 @@ async def detect_plate_from_image(file: UploadFile = File(...), db: Session = De
         # Check if vehicle is registered
         vehicle = db.query(models.Vehicle).filter(models.Vehicle.plate_number == plate_number).first()
 
-        # Prepare log entry
-        timestamp = datetime.utcnow()
+        # Prepare log entry with Philippine time
+        timestamp = datetime.now(PHILIPPINE_TZ)
         if vehicle:
             new_log = models.Log(
                 plate_number=plate_number,
@@ -103,17 +107,20 @@ async def detect_plate_from_image(file: UploadFile = File(...), db: Session = De
                 "timestamp": timestamp.isoformat(),
                 "vehicle": {
                     "name": vehicle.name,
-                    "purpose": vehicle.purpose
+                    "purpose": vehicle.purpose,
+                    "profile_picture": vehicle.profile_picture
                 }
             })
 
             return {
-                "status": "✅ Registered",
                 "plate_number": plate_number,
+                "status": "registered",
+                "timestamp": timestamp.isoformat(),
                 "vehicle": {
                     "name": vehicle.name,
                     "plate_number": vehicle.plate_number,
                     "purpose": vehicle.purpose,
+                    "profile_picture": vehicle.profile_picture,
                     "date_registered": str(vehicle.date_registered)
                 }
             }
@@ -135,8 +142,9 @@ async def detect_plate_from_image(file: UploadFile = File(...), db: Session = De
             })
 
             return {
-                "status": "🚫 Unregistered",
-                "plate_number": plate_number
+                "plate_number": plate_number,
+                "status": "unregistered",
+                "timestamp": timestamp.isoformat()
             }
 
     except Exception as e:
@@ -149,58 +157,32 @@ async def detect_plate(data: dict, db: Session = Depends(get_db)):
     if not plate_number:
         return {"error": "No plate_number provided"}
 
-    # Check if vehicle is registered
+    # Normalize plate number: uppercase, remove spaces and special characters
+    plate_number = plate_number.upper().replace(' ', '').replace('-', '')
+
+    # Check if vehicle is registered (case-insensitive)
     vehicle = db.query(models.Vehicle).filter(models.Vehicle.plate_number == plate_number).first()
 
-    # Prepare log entry
-    timestamp = datetime.utcnow()
-    if vehicle:
-        new_log = models.Log(
-            plate_number=plate_number,
-            status="registered",
-            vehicle_id=vehicle.id,
-            timestamp=timestamp
-        )
-        db.add(new_log)
-        db.commit()
-        db.refresh(new_log)
+    # Manual checks don't create logs automatically
+    # User can choose to add to logs via the "Add to Logs Now" button
+    timestamp = datetime.now(PHILIPPINE_TZ)
 
-        # 🔔 Notify all connected dashboards in real time
-        await manager.broadcast({
+    if vehicle:
+        return {
             "plate_number": plate_number,
             "status": "registered",
             "timestamp": timestamp.isoformat(),
             "vehicle": {
                 "name": vehicle.name,
-                "purpose": vehicle.purpose
-            }
-        })
-
-        return {
-            "status": "✅ Registered",
-            "vehicle": {
-                "name": vehicle.name,
                 "plate_number": vehicle.plate_number,
                 "purpose": vehicle.purpose,
-                "date_registered": vehicle.date_registered
+                "profile_picture": vehicle.profile_picture,
+                "date_registered": str(vehicle.date_registered)
             }
         }
-
     else:
-        new_log = models.Log(
-            plate_number=plate_number,
-            status="unregistered",
-            timestamp=timestamp
-        )
-        db.add(new_log)
-        db.commit()
-        db.refresh(new_log)
-
-        # 🔔 Notify dashboard about unregistered detection
-        await manager.broadcast({
+        return {
             "plate_number": plate_number,
             "status": "unregistered",
             "timestamp": timestamp.isoformat()
-        })
-
-        return {"status": "🚫 Unregistered"}
+        }
