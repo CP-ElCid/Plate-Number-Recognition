@@ -7,6 +7,7 @@ from api.database import SessionLocal
 from api import models
 from datetime import datetime
 from api.websocket_manager import manager
+from api.esp32_controller import trigger_esp32
 import asyncio
 import pytz
 
@@ -64,6 +65,9 @@ async def process_detection(plate: str):
             db.add(new_log)
             db.commit()
 
+            # Trigger ESP32 - Green LED + short beep
+            await trigger_esp32("registered")
+
             # Broadcast to WebSocket
             message = {
                 "plate_number": plate,
@@ -87,6 +91,9 @@ async def process_detection(plate: str):
             )
             db.add(new_log)
             db.commit()
+
+            # Trigger ESP32 - Red LED + long beep
+            await trigger_esp32("unregistered")
 
             # Broadcast to WebSocket
             message = {
