@@ -183,7 +183,7 @@ def registered_vehicle():
 def unregistered_vehicle():
     red_led.on()
     green_led.off()
-    beep(1)
+    # No buzzer for unregistered — only red LED
     time.sleep(5)
     red_led.off()
     return "UNREGISTERED VEHICLE"
