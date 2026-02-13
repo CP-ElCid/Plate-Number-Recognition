@@ -100,7 +100,7 @@ async def detect_plate_from_image(file: UploadFile = File(...), db: Session = De
             db.commit()
             db.refresh(new_log)
 
-            # 🔔 Notify all connected dashboards in real time
+            # 🔔 Notify all connected dashboards in real time (Registered Only)
             await manager.broadcast({
                 "plate_number": plate_number,
                 "status": "registered",
@@ -134,12 +134,8 @@ async def detect_plate_from_image(file: UploadFile = File(...), db: Session = De
             db.commit()
             db.refresh(new_log)
 
-            # 🔔 Notify dashboard about unregistered detection
-            await manager.broadcast({
-                "plate_number": plate_number,
-                "status": "unregistered",
-                "timestamp": timestamp.isoformat()
-            })
+            # NOTE: We skip broadcasting unregistered plates to dashboard
+            print(f"🚫 Unregistered: {plate_number} (Broadcast skipped)")
 
             return {
                 "plate_number": plate_number,

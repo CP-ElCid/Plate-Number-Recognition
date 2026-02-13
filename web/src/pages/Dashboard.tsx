@@ -56,13 +56,19 @@ export default function Dashboard() {
           try {
             const data = JSON.parse(event.data);
             console.log("📊 Parsed detection data:", data);
-            setDetections((prev) => {
-              const updated = [data, ...prev.slice(0, 10)];
-              console.log("📋 Updated detections:", updated);
-              return updated;
-            });
-            setSelectedVehicle(data);
-            console.log("✅ Detection added to list:", data.plate_number);
+
+            // Only show REGISTERED plates in Live Updates
+            if (data.status === "registered") {
+              setDetections((prev) => {
+                const updated = [data, ...prev.slice(0, 10)];
+                console.log("📋 Updated detections:", updated);
+                return updated;
+              });
+              setSelectedVehicle(data);
+              console.log("✅ Registered detection added to list:", data.plate_number);
+            } else {
+              console.log("⏭️ Skipping unregistered plate from Live Updates:", data.plate_number);
+            }
           } catch (error) {
             console.error("❌ Error parsing WebSocket message:", error);
             console.error("Raw message:", event.data);
