@@ -181,7 +181,7 @@ async def process_detection(plate: str):
             db.add(new_log)
             db.commit()
 
-            # Trigger ESP32 - Red LED + long beep
+            # Trigger ESP32 - Red LED only (no buzzer, handled on ESP32 side)
             await trigger_esp32("unregistered")
 
             # NOTE: Skip WebSocket broadcast for unregistered plates

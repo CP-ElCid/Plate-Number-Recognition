@@ -78,7 +78,7 @@ class ESP32Controller:
 
     async def trigger_unregistered(self) -> bool:
         """
-        Trigger unregistered vehicle response (Red LED + long beep)
+        Trigger unregistered vehicle response (Red LED only, no buzzer)
         Runs in thread pool to avoid blocking async operations
         """
         loop = asyncio.get_event_loop()
