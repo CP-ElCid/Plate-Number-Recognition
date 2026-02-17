@@ -11,24 +11,34 @@ from api.websocket_manager import manager
 from api.esp32_controller import trigger_esp32
 import asyncio
 import pytz
+from api.config import (
+    CAMERA_SOURCE, 
+    CONFIDENCE_THRESHOLD, 
+    BUFFER_SIZE, 
+    VERIFICATION_COUNT, 
+    COOLDOWN_SECONDS, 
+    OCR_FRAME_INTERVAL,
+    USE_GPU
+)
 
 # Philippine timezone
 PHILIPPINE_TZ = pytz.timezone('Asia/Manila')
 
 router = APIRouter()
 
-CAMERA_SOURCE = 0  # change if you have multiple cameras
-
 # Initialize EasyOCR reader
-reader = easyocr.Reader(['en'], gpu=False)
-print("✅ EasyOCR reader initialized")
+reader = easyocr.Reader(['en'], gpu=USE_GPU)
+print(f"✅ EasyOCR reader initialized (GPU: {USE_GPU})")
 
 # --- Detection Constants ---
-CONFIDENCE_THRESHOLD = 0.60  # Minimum confidence for a valid plate candidate
-BUFFER_SIZE = 5              # Rolling buffer size for temporal verification
-VERIFICATION_COUNT = 3       # Must appear this many times in buffer to confirm
-COOLDOWN_SECONDS = 30        # Seconds before the same plate can be re-logged
-OCR_FRAME_INTERVAL = 15      # Process OCR every Nth frame (lower = faster detection)
+# Imported from api.config
+# CONFIDENCE_THRESHOLD = 0.60
+# BUFFER_SIZE = 5      
+# VERIFICATION_COUNT = 3
+# COOLDOWN_SECONDS = 30
+# OCR_FRAME_INTERVAL = 15
+
+# --- State ---
 
 # --- State ---
 plate_buffer = []            # Rolling buffer of recent plate reads
@@ -154,10 +164,7 @@ async def process_detection(plate: str):
             db.add(new_log)
             db.commit()
 
-            # Trigger ESP32 - Green LED + short beep
-            await trigger_esp32("registered")
-
-            # Broadcast to WebSocket (REGISTERED ONLY)
+            # Broadcast to WebSocket (REGISTERED ONLY) - Send FIRST for instant UI update
             message = {
                 "plate_number": plate,
                 "status": "registered",
@@ -171,6 +178,15 @@ async def process_detection(plate: str):
             await manager.broadcast(message)
             print(f"✅ Registered: {plate} - {vehicle.name}")
             print(f"📡 WebSocket broadcast sent: {message}")
+
+            # Trigger ESP32 - Green LED + short beep (Non-blocking attempt)
+            try:
+                # We use create_task to let it run in background if we wanted, 
+                # but simply awaiting it AFTER broadcast is enough to unblock UI.
+                # Adding a separate try-block ensures hardware errors don't crash the loop.
+                await trigger_esp32("registered")
+            except Exception as e:
+                print(f"⚠️ ESP32 Trigger Failed (UI updated anyway): {e}")
         else:
             # Create log for unregistered vehicle (still saved to DB)
             new_log = models.Log(

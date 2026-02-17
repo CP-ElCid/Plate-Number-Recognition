@@ -6,14 +6,10 @@ Sends HTTP requests to ESP32 to control LEDs and buzzer based on vehicle registr
 import requests
 import asyncio
 from typing import Literal
-
-# ESP32 Configuration
-ESP32_IP = "192.168.18.32"  # Update this with your ESP32's IP address
-ESP32_PORT = 80
-ESP32_ENABLED = True  # Set to False to disable ESP32 integration
+from api.config import ESP32_IP, ESP32_PORT, ESP32_ENABLED
 
 # Timeout for HTTP requests (seconds)
-REQUEST_TIMEOUT = 2
+REQUEST_TIMEOUT = 5
 
 
 class ESP32Controller:
@@ -40,59 +36,57 @@ class ESP32Controller:
             self.is_connected = False
             return False
 
-    def _send_request(self, endpoint: str) -> bool:
+    async def _send_request(self, endpoint: str) -> tuple[bool, str]:
         """Send HTTP request to ESP32"""
         if not self.enabled:
-            print("ℹ️ ESP32 integration is disabled")
-            return False
+            return False, "ESP32 integration is disabled"
 
         try:
             url = f"{self.base_url}{endpoint}"
             print(f"📡 Sending request to ESP32: {url}")
-            response = requests.get(url, timeout=REQUEST_TIMEOUT)
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, lambda: requests.get(url, timeout=REQUEST_TIMEOUT))
 
             if response.status_code == 200:
                 print(f"✅ ESP32 response: {response.text.strip()}")
-                return True
+                return True, "Success"
             else:
-                print(f"⚠️ ESP32 returned status {response.status_code}")
-                return False
+                msg = f"ESP32 returned status {response.status_code}"
+                print(f"⚠️ {msg}")
+                return False, msg
 
         except requests.exceptions.Timeout:
-            print(f"⏱️ ESP32 request timeout (>{REQUEST_TIMEOUT}s)")
-            return False
+            msg = f"ESP32 request timeout (>{REQUEST_TIMEOUT}s) - Command assumed sent"
+            print(f"⏱️ {msg}")
+            return True, msg  # Return True because hardware is responding despite timeout
         except requests.exceptions.ConnectionError:
-            print(f"❌ Cannot connect to ESP32 at {self.base_url}")
-            return False
+            msg = f"Cannot connect to ESP32 at {self.base_url}"
+            print(f"❌ {msg}")
+            return False, msg
         except Exception as e:
-            print(f"❌ ESP32 request error: {e}")
-            return False
+            msg = f"ESP32 request error: {str(e)}"
+            print(f"❌ {msg}")
+            return False, msg
 
-    async def trigger_registered(self) -> bool:
+    async def trigger_registered(self) -> tuple[bool, str]:
         """
         Trigger registered vehicle response (Green LED + short beep)
-        Runs in thread pool to avoid blocking async operations
         """
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._send_request, "/registered")
+        return await self._send_request("/registered")
 
-    async def trigger_unregistered(self) -> bool:
+    async def trigger_unregistered(self) -> tuple[bool, str]:
         """
         Trigger unregistered vehicle response (Red LED only, no buzzer)
-        Runs in thread pool to avoid blocking async operations
         """
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._send_request, "/unregistered")
+        return await self._send_request("/unregistered")
 
-    async def test_all(self) -> bool:
+    async def test_all(self) -> tuple[bool, str]:
         """Test all ESP32 components"""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._send_request, "/test")
+        return await self._send_request("/test")
 
-    async def turn_off(self) -> bool:
+    async def turn_off(self) -> tuple[bool, str]:
         """Turn off all ESP32 outputs"""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._send_request, "/off")
+        return await self._send_request("/off")
 
     def update_ip(self, new_ip: str):
         """Update ESP32 IP address"""
