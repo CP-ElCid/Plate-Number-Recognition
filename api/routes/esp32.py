@@ -53,11 +53,11 @@ async def trigger_registered():
     if not esp32.enabled:
         raise HTTPException(status_code=400, detail="ESP32 is disabled")
 
-    success = await esp32.trigger_registered()
+    success, msg = await esp32.trigger_registered()
     if success:
         return {"status": "success", "message": "Registered vehicle triggered"}
     else:
-        raise HTTPException(status_code=500, detail="Failed to trigger ESP32")
+        raise HTTPException(status_code=500, detail=f"Failed to trigger ESP32: {msg}")
 
 
 @router.post("/trigger/unregistered")
@@ -66,11 +66,11 @@ async def trigger_unregistered():
     if not esp32.enabled:
         raise HTTPException(status_code=400, detail="ESP32 is disabled")
 
-    success = await esp32.trigger_unregistered()
+    success, msg = await esp32.trigger_unregistered()
     if success:
         return {"status": "success", "message": "Unregistered vehicle triggered"}
     else:
-        raise HTTPException(status_code=500, detail="Failed to trigger ESP32")
+        raise HTTPException(status_code=500, detail=f"Failed to trigger ESP32: {msg}")
 
 
 @router.post("/test")
@@ -79,11 +79,11 @@ async def test_esp32():
     if not esp32.enabled:
         raise HTTPException(status_code=400, detail="ESP32 is disabled")
 
-    success = await esp32.test_all()
+    success, msg = await esp32.test_all()
     if success:
         return {"status": "success", "message": "ESP32 test completed"}
     else:
-        raise HTTPException(status_code=500, detail="Failed to test ESP32")
+        raise HTTPException(status_code=500, detail=f"Failed to test ESP32: {msg}")
 
 
 @router.post("/off")
@@ -92,8 +92,8 @@ async def turn_off_esp32():
     if not esp32.enabled:
         raise HTTPException(status_code=400, detail="ESP32 is disabled")
 
-    success = await esp32.turn_off()
+    success, msg = await esp32.turn_off()
     if success:
         return {"status": "success", "message": "ESP32 outputs turned off"}
     else:
-        raise HTTPException(status_code=500, detail="Failed to turn off ESP32")
+        raise HTTPException(status_code=500, detail=f"Failed to turn off ESP32: {msg}")

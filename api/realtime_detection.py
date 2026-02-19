@@ -4,21 +4,32 @@ import requests
 import numpy as np
 import re
 from datetime import datetime
+from api.config import (
+    CAMERA_SOURCE,
+    API_HOST,
+    API_PORT,
+    CONFIDENCE_THRESHOLD,
+    BUFFER_SIZE,
+    VERIFICATION_COUNT,
+    COOLDOWN_SECONDS,
+    USE_GPU
+)
 
-API_URL = "http://127.0.0.1:8000/api/detect/manual"
+API_URL = f"http://{API_HOST}:{API_PORT}/api/detect/manual"
 # Load reader once
-reader = easyocr.Reader(['en'], gpu=False)
+reader = easyocr.Reader(['en'], gpu=USE_GPU)
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(CAMERA_SOURCE)
 if not cap.isOpened():
-    print("ERROR: Cannot open camera")
+    print(f"ERROR: Cannot open camera (source: {CAMERA_SOURCE})")
     exit()
 
 # --- Detection Constants ---
-CONFIDENCE_THRESHOLD = 0.70
-BUFFER_SIZE = 5
-VERIFICATION_COUNT = 3
-COOLDOWN_SECONDS = 30
+# Imported from api.config
+# CONFIDENCE_THRESHOLD = 0.60
+# BUFFER_SIZE = 5
+# VERIFICATION_COUNT = 3
+# COOLDOWN_SECONDS = 30
 
 # --- State ---
 plate_buffer = []
